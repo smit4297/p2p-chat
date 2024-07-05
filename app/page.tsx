@@ -1,10 +1,36 @@
-import ChatClient from './components/ChatClient'
+'use client';
+
+import React, { useState } from 'react';
+import useWebRTC from './hooks/useWebRTC';
+import ChatUI from './components/ChatUI';
 
 export default function Home() {
+  const [mode, setMode] = useState<'start' | 'join' | null>(null);
+  const {
+    peerId,
+    remotePeerId,
+    setRemotePeerId,
+    message,
+    setMessage,
+    receivedMessages,
+    isConnected,
+    handleConnect,
+    handleSend,
+  } = useWebRTC(mode);
+
   return (
-    <div>
-      <h1>P2P Chat</h1>
-      <ChatClient />
-    </div>
-  )
+    <ChatUI
+      mode={mode}
+      peerId={peerId}
+      remotePeerId={remotePeerId}
+      setRemotePeerId={setRemotePeerId}
+      message={message}
+      setMessage={setMessage}
+      receivedMessages={receivedMessages}
+      isConnected={isConnected}
+      handleConnect={handleConnect}
+      handleSend={handleSend}
+      setMode={setMode}
+    />
+  );
 }
