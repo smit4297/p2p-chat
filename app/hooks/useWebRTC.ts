@@ -1,6 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import SimplePeer from 'simple-peer';
 import { toast } from 'react-toastify';
+import { database } from '../utils/firebaseConfig';
+import { ref, set, get, remove } from 'firebase/database';
+
+function generateRandomCode(length = 6) {
+  const characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  const charactersLength = characters.length;
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
+}
 
 export default function useWebRTC(mode: 'start' | 'join' | null) {
   const [peerId, setPeerId] = useState<string>('');
@@ -16,9 +28,18 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
         initiator: mode === 'start',
         trickle: false,
       });
-
-      peer.on('signal', (data: SimplePeer.SignalData) => {
-        setPeerId(JSON.stringify(data));
+      console.log(isConnected)
+      peer.on('signal', async (data: SimplePeer.SignalData) => {
+        const signalData = JSON.stringify(data);
+        if (mode === 'start') {
+          const randomCode = generateRandomCode();
+          await set(ref(database, `peers/${randomCode}`), { signalData, expiry: Date.now() + 300000 });
+          setPeerId(randomCode);
+        } else if (mode === 'join' && !isConnected) {
+          const randomCode = generateRandomCode();
+          await set(ref(database, `peers/${randomCode}`), { signalData, expiry: Date.now() + 300000 });
+          setPeerId(randomCode);
+        }
       });
 
       peer.on('data', (data: Uint8Array) => {
@@ -51,11 +72,22 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
     }
   }, [mode]);
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     try {
       if (peerRef.current && remotePeerId) {
-        const parsedRemotePeerId = JSON.parse(remotePeerId);
-        peerRef.current.signal(parsedRemotePeerId);
+        const snapshot = await get(ref(database, `peers/${remotePeerId}`));
+        if (snapshot.exists()) {
+          const { signalData, expiry } = snapshot.val();
+          if (Date.now() > expiry) {
+            toast.error('Code has expired');
+            await remove(ref(database, `peers/${remotePeerId}`));
+          } else {
+            const parsedRemotePeerId = JSON.parse(signalData);
+            peerRef.current.signal(parsedRemotePeerId);
+          }
+        } else {
+          toast.error('Invalid peer code');
+        }
       } else {
         toast.error('Invalid remote peer ID');
       }
