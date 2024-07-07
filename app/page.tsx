@@ -1,8 +1,9 @@
-'use client';
+'use client'
 
 import React, { useState } from 'react';
-import useWebRTC from './hooks/useWebRTC';
-import ChatUI from './components/ChatUI';
+import useWebRTC from '../hooks/useWebRTC';
+import ChatUI from '../components/ChatUI';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function Home() {
   const [mode, setMode] = useState<'start' | 'join' | null>(null);
@@ -16,6 +17,10 @@ export default function Home() {
     isConnected,
     handleConnect,
     handleSend,
+    handleSendFile,
+    sendProgress,
+    receiveProgress,
+    receivedFiles,
   } = useWebRTC(mode);
 
   return (
@@ -30,6 +35,10 @@ export default function Home() {
       isConnected={isConnected}
       handleConnect={handleConnect}
       handleSend={handleSend}
+      handleSendFile={handleSendFile}
+      sendProgress={sendProgress}
+      receiveProgress={receiveProgress}
+      receivedFiles={receivedFiles}
       setMode={setMode}
     />
   );
