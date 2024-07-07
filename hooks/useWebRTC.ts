@@ -233,7 +233,7 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
     if (receivedSizeRef.current === fileSizeRef.current) {
       const receivedBlob = new Blob(fileChunksRef.current.filter(Boolean));
       const url = URL.createObjectURL(receivedBlob);
-      setReceivedMessages((prev) => [...prev, `Friend: Sent file - ${fileNameRef.current}`]);
+      setReceivedMessages((prev) => [...prev, `Friend: File received - ${fileNameRef.current}`]);
       setReceivedFiles((prev) => [...prev, { name: fileNameRef.current, url }]);
       toast.success(`Received file - ${fileNameRef.current}`);
     }
