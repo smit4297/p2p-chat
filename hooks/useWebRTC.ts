@@ -135,7 +135,9 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
         peerRef.current.send(message);
         setReceivedMessages((prev) => [...prev, `Me: ${message}`]);
         setMessage('');
-        toast.success('Message sent');
+        // toast.success('Message sent');
+        setSendProgress(0);
+        
       } else {
         toast.error('Failed to send message');
       }
@@ -166,6 +168,7 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
       if (chunkIndex >= totalChunks) {
         setReceivedMessages((prev) => [...prev, `Me: Sent file - ${file.name}`]);
         toast.success('File sent successfully');
+        setSendProgress(0);
         return;
       }
 
@@ -235,7 +238,9 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
       const url = URL.createObjectURL(receivedBlob);
       setReceivedMessages((prev) => [...prev, `Friend: File received - ${fileNameRef.current}`]);
       setReceivedFiles((prev) => [...prev, { name: fileNameRef.current, url }]);
-      toast.success(`Received file - ${fileNameRef.current}`);
+      // toast.success(`Received file - ${fileNameRef.current}`);
+      setReceiveProgress(0);
+
     }
   };
 
