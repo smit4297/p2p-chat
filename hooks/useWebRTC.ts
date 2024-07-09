@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import SimplePeer from 'simple-peer';
 import { toast } from 'react-toastify';
 import { database } from '../lib/firebaseConfig';
-import { ref, set, get, remove } from 'firebase/database';
+import { ref, set, get, remove, onValue } from 'firebase/database';
+import { useConnection } from '../context/ConnectionContext'; // Import the useConnection hook
 
 function generateRandomCode(length = 6) {
   const characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -16,14 +17,15 @@ function generateRandomCode(length = 6) {
 
 interface UseWebRTCProps {
   mode: 'start' | 'join' | null;
+  setMode: (mode: 'start' | 'join' | null) => void;
 }
 
-export default function useWebRTC(mode: 'start' | 'join' | null) {
+export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
+  const { isConnected, setIsConnected, isPeerConnected, setIsPeerConnected } = useConnection(); // Use the connection context
   const [peerId, setPeerId] = useState<string>('');
   const [remotePeerId, setRemotePeerId] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [receivedMessages, setReceivedMessages] = useState<string[]>([]);
-  const [isConnected, setIsConnected] = useState<boolean>(false);
   const [sendProgress, setSendProgress] = useState<number>(0);
   const [receiveProgress, setReceiveProgress] = useState<number>(0);
   const [receivedFiles, setReceivedFiles] = useState<{ name: string, url: string }[]>([]);
@@ -37,13 +39,34 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
   const maxRetries = 3;
   const retryDelay = 1000; // 1 second
 
+  const resetState = () => {
+    setPeerId('');
+    setRemotePeerId('');
+    setMessage('');
+    setReceivedMessages([]);
+    setIsConnected(false);
+    setSendProgress(0);
+    setReceiveProgress(0);
+    setReceivedFiles([]);
+    fileChunksRef.current = [];
+    fileNameRef.current = '';
+    fileSizeRef.current = 0;
+    receivedSizeRef.current = 0;
+    if (peerRef.current) {
+      peerRef.current.destroy();
+      peerRef.current = null;
+    }
+    setMode(null);
+    setIsPeerConnected(false);
+  };
+
   useEffect(() => {
     if (mode) {
       const peer = new SimplePeer({
         initiator: mode === 'start',
         trickle: false,
       });
-
+  
       peer.on('signal', async (data: SimplePeer.SignalData) => {
         const signalData = JSON.stringify(data);
         if (mode === 'start') {
@@ -56,31 +79,43 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
           setPeerId(randomCode);
         }
       });
-
-      peer.on('connect', () => {
+  
+      peer.on('connect', async () => {
         toast.success('Connected to peer!');
         setIsConnected(true);
       });
-
-      peer.on('error', (err) => {
-        toast.error(`Error: ${err.message}`);
+  
+      peer.on('error', async (err) => {
+        // toast.error(`Error: ${err.message}`);
+        resetState();
       });
-
-      peer.on('close', () => {
+  
+      peer.on('close', async () => {
         toast.info('Connection closed');
-        setIsConnected(false);
+        resetState();
       });
-
+  
       peerRef.current = peer;
-
+  
       return () => {
-        if (peerRef.current) {
-          peerRef.current.destroy();
-          peerRef.current = null;
-        }
+        resetState();
       };
     }
   }, [mode]);
+  
+
+  useEffect( () => {
+    if (mode === 'start' && peerId) {
+      const statusRef = ref(database, `peers/${peerId}/status`);
+      const unsubscribe = onValue(statusRef, (snapshot) => {
+        if (snapshot.exists() && snapshot.val() === 'connected') {
+          setIsPeerConnected(true);
+        }
+      });
+
+      return () => unsubscribe();
+    }
+  }, [mode, peerId]);
 
   useEffect(() => {
     if (peerRef.current) {
@@ -96,7 +131,6 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
             setReceivedMessages((prev) => [...prev, `Friend: ${decodedMessage}`]);
           }
         } catch (error) {
-          // Handle non-JSON messages (like text messages or acknowledgments)
           if (!decodedMessage.startsWith('ack:')) {
             setReceivedMessages((prev) => [...prev, `Friend: ${decodedMessage}`]);
           }
@@ -117,6 +151,7 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
           } else {
             const parsedRemotePeerId = JSON.parse(signalData);
             peerRef.current.signal(parsedRemotePeerId);
+            await updatePeerStatus(remotePeerId, 'connected');
           }
         } else {
           toast.error('Invalid peer code');
@@ -135,9 +170,7 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
         peerRef.current.send(message);
         setReceivedMessages((prev) => [...prev, `Me: ${message}`]);
         setMessage('');
-        // toast.success('Message sent');
         setSendProgress(0);
-        
       } else {
         toast.error('Failed to send message');
       }
@@ -174,20 +207,19 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
 
       const start = chunkIndex * chunkSize;
       const end = Math.min(start + chunkSize, file.size);
-      const chunk = await file.slice(start, end).arrayBuffer();
+      const chunk = new Uint8Array(await file.slice(start, end).arrayBuffer());
 
       try {
         peerRef.current?.send(JSON.stringify({
           type: 'file-chunk',
           fileId,
           chunkIndex,
-          chunk: Array.from(new Uint8Array(chunk))
+          chunk: Array.from(chunk)
         }));
 
         chunkIndex++;
         setSendProgress((chunkIndex / totalChunks) * 100);
 
-        // Flow control: wait for acknowledgment before sending the next chunk
         await new Promise<void>((resolve) => {
           const onAck = (data: Uint8Array) => {
             const message = new TextDecoder().decode(data);
@@ -199,7 +231,7 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
           peerRef.current?.on('data', onAck);
         });
 
-        setTimeout(() => sendChunk(), 10); // Schedule next chunk
+        setTimeout(() => sendChunk(), 10);
       } catch (error) {
         console.error('Error sending chunk:', error);
         if (retry < maxRetries) {
@@ -217,6 +249,13 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
     sendFileInChunks(file);
   };
 
+  const updatePeerStatus = async (remotePeerId: string, status: string) => {
+    try {
+      await set(ref(database, `peers/${remotePeerId}/status`), status);
+    } catch (error) {
+    }
+  };
+
   const receiveFile = (fileInfo: { fileId: string, name: string, size: number, totalChunks: number }) => {
     fileNameRef.current = fileInfo.name;
     fileSizeRef.current = fileInfo.size;
@@ -230,7 +269,6 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
     receivedSizeRef.current += chunk.byteLength;
     setReceiveProgress((receivedSizeRef.current / fileSizeRef.current) * 100);
 
-    // Send acknowledgment
     peerRef.current?.send(`ack:${chunkData.fileId}:${chunkData.chunkIndex}`);
 
     if (receivedSizeRef.current === fileSizeRef.current) {
@@ -238,10 +276,15 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
       const url = URL.createObjectURL(receivedBlob);
       setReceivedMessages((prev) => [...prev, `Friend: File received - ${fileNameRef.current}`]);
       setReceivedFiles((prev) => [...prev, { name: fileNameRef.current, url }]);
-      // toast.success(`Received file - ${fileNameRef.current}`);
       setReceiveProgress(0);
-
     }
+  };
+
+  const handleDisconnect = () => {
+    if (peerRef.current) {
+      peerRef.current.send(JSON.stringify({ type: 'disconnect' }));
+    }
+    resetState();
   };
 
   return {
@@ -252,11 +295,14 @@ export default function useWebRTC(mode: 'start' | 'join' | null) {
     setMessage,
     receivedMessages,
     isConnected,
+    isPeerConnected,
     handleConnect,
     handleSend,
     handleSendFile,
     sendProgress,
     receiveProgress,
     receivedFiles,
+    handleDisconnect,
+    resetState,
   };
 }
