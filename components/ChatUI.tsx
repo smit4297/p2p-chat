@@ -1,3 +1,5 @@
+// ChatUI.tsx
+
 'use client'
 
 import React, { useRef, useEffect, useState } from 'react';
@@ -12,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
+import { FileTransfer } from '../hooks/useWebRTC';
 
 interface ChatUIProps {
   mode: 'start' | 'join' | null;
@@ -27,15 +30,50 @@ interface ChatUIProps {
   handleConnect: () => void;
   handleSend: () => void;
   handleSendFile: (file: File) => void;
-  sendProgress: number;
-  receiveProgress: number;
   receivedFiles: { name: string, url: string }[];
   handleDisconnect: () => void;
   resetState: () => void;
+  fileTransfers: Map<string, FileTransfer>;
+  cancelFileTransfer: (fileId: string) => void;
 }
+
+const FileTransferProgress: React.FC<{ transfer: FileTransfer, onCancel: (fileId: string) => void }> = ({ transfer, onCancel }) => {
+  if(transfer.progress.toFixed(0) !== "100"){
+    return (
+      <div className="mt-2 p-2 bg-muted rounded-md">
+        <div className="flex justify-between text-sm">
+          <span>{transfer.fileName}</span>
+          <span>{transfer.progress.toFixed(0)}%</span>
+        </div>
+        <Progress value={transfer.progress} className="w-full mt-1" />
+        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+          <span>{transfer.direction === 'send' ? 'Sending' : 'Receiving'} file...</span>
+          <span>{transfer.status}</span>
+        </div>
+        {transfer.status !== 'completed' && transfer.status !== 'cancelled' && (
+          <Button variant="destructive" size="sm" onClick={() => onCancel(transfer.fileId)} className="mt-2">
+            Cancel
+          </Button>
+        )}
+      </div>
+    );
+  }
+  
+};
+
+const FileTransferList: React.FC<{ transfers: Map<string, FileTransfer>, onCancel: (fileId: string) => void }> = ({ transfers, onCancel }) => {
+  return (
+    <div className="space-y-2">
+      {Array.from(transfers.values()).map((transfer) => (
+        <FileTransferProgress key={transfer.fileId} transfer={transfer} onCancel={onCancel} />
+      ))}
+    </div>
+  );
+};
 
 const ChatUI: React.FC<ChatUIProps> = ({
   mode,
+  setMode,
   peerId,
   remotePeerId,
   setRemotePeerId,
@@ -47,13 +85,13 @@ const ChatUI: React.FC<ChatUIProps> = ({
   handleConnect,
   handleSend,
   handleSendFile,
-  sendProgress,
-  receiveProgress,
   receivedFiles,
-  setMode,
   handleDisconnect,
-  resetState
-}) => {  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  resetState,
+  fileTransfers,
+  cancelFileTransfer,
+}) => {
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -61,12 +99,12 @@ const ChatUI: React.FC<ChatUIProps> = ({
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
-  }, [receivedMessages, sendProgress, receiveProgress]);
+  }, [receivedMessages, fileTransfers]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleSendFile(file);
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach(file => handleSendFile(file));
     }
   };
 
@@ -153,16 +191,22 @@ const ChatUI: React.FC<ChatUIProps> = ({
         <CardContent className="flex-1 overflow-hidden flex flex-col p-2 sm:p-4">
           <ScrollArea className="flex-1 pr-2 sm:pr-4" ref={scrollAreaRef}>
             <div className="space-y-3 sm:space-y-4">
-            {receivedMessages.map((msg, index) => {
+              {receivedMessages.map((msg, index) => {
                 const isMe = msg.startsWith('Me:');
+
+                console.log("------------------" + msg)
                 const [sender, ...contentParts] = msg.split(': ');
-                const content = contentParts.join(': '); // Rejoin in case there are colons in the message
+                const content = contentParts.join(': ');
                 const fileName = content.split('File received - ')[1];
-                // Check if the message is a file
                 const file = receivedFiles.find(file => file.name === fileName);
                 const isFile = !!file;
+
+                if (isFile && receivedMessages.findIndex(m => m.includes(fileName)) !== index) {
+                  return null;
+                }
+
                 return (
-                  <div key={index} className={cn("flex items-start", isMe ? "justify-end" : "justify-start", "mb-3 sm:mb-4")}>
+                  <div key={`${index}-${fileName || content}`} className={cn("flex items-start", isMe ? "justify-end" : "justify-start", "mb-3 sm:mb-4")}>
                     {!isMe && (
                       <Avatar className="h-6 w-6 sm:h-8 sm:w-8 mr-1 sm:mr-2 flex-shrink-0">
                         <AvatarImage src="" alt="User" />
@@ -170,18 +214,18 @@ const ChatUI: React.FC<ChatUIProps> = ({
                       </Avatar>
                     )}
                     <div className={cn("flex flex-col max-w-[75%] sm:max-w-[70%]", isMe ? "items-end" : "items-start")}>
-                      {!isMe && <span className="text-xs sm:text-sm text-muted-foreground mb-1"></span>}
+                      {!isMe && <span className="text-xs sm:text-sm text-muted-foreground mb-1">{sender}</span>}
                       <div className={cn(
                         "rounded-lg py-1 px-2 sm:py-2 sm:px-3 break-words text-sm sm:text-base",
                         isMe ? "bg-primary text-primary-foreground" : "bg-muted",
-                        "whitespace-pre-wrap" // Add this class
+                        "whitespace-pre-wrap"
                       )}>
                         {isFile ? (
                           <a href={file.url} download={file.name} className="text-blue-500 underline">
                             {file.name}
                           </a>
                         ) : (
-                          `${content}` // Use backticks here
+                          `${content}`
                         )}
                       </div>
                     </div>
@@ -195,38 +239,32 @@ const ChatUI: React.FC<ChatUIProps> = ({
                 );
               })}
             </div>
-            {(sendProgress > 0 || receiveProgress > 0) && (
-              <div className="mt-3 sm:mt-4">
-                <Progress value={sendProgress > 0 ? sendProgress : receiveProgress} className="w-full" />
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                  {sendProgress > 0 ? 'Sending file...' : 'Receiving file...'}
-                </p>
-              </div>
-            )}
+            <FileTransferList transfers={fileTransfers} onCancel={cancelFileTransfer} />
           </ScrollArea>
         </CardContent>
         <div className="p-2 sm:p-4 border-t flex items-start space-x-2">
-            <Button variant="ghost" size="icon" onClick={() => document.getElementById('file-input')?.click()}>
-              <PaperclipIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
-            <input
-              id="file-input"
-              type="file"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <Textarea
-              ref={inputRef}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type a message..."
-              className="flex-1 text-sm sm:text-base min-h-[40px] max-h-[120px] resize-none"
-              rows={3}
-            />
-            <Button variant="ghost" size="icon" onClick={handleSend}>
-              <Send className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
+          <Button variant="ghost" size="icon" onClick={() => document.getElementById('file-input')?.click()}>
+            <PaperclipIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+          </Button>
+          <input
+            id="file-input"
+            type="file"
+            onChange={handleFileChange}
+            className="hidden"
+            multiple
+          />
+          <Textarea
+            ref={inputRef}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Type a message..."
+            className="flex-1 text-sm sm:text-base min-h-[40px] max-h-[120px] resize-none"
+            rows={3}
+          />
+          <Button variant="ghost" size="icon" onClick={handleSend}>
+            <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+          </Button>
         </div>
       </Card>
       <ToastContainer />

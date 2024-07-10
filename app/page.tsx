@@ -29,11 +29,10 @@ const WebRTCWrapper = ({ mode, setMode }: { mode: 'start' | 'join' | null, setMo
     handleConnect,
     handleSend,
     handleSendFile,
-    sendProgress,
-    receiveProgress,
     receivedFiles,
     handleDisconnect,
     resetState,
+    fileTransfers,
   } = useWebRTC({ mode, setMode });
 
   return (
@@ -50,12 +49,11 @@ const WebRTCWrapper = ({ mode, setMode }: { mode: 'start' | 'join' | null, setMo
       handleConnect={handleConnect}
       handleSend={handleSend}
       handleSendFile={handleSendFile}
-      sendProgress={sendProgress}
-      receiveProgress={receiveProgress}
       receivedFiles={receivedFiles}
       setMode={setMode}
       handleDisconnect={handleDisconnect}
       resetState={resetState}
+      fileTransfers={fileTransfers}
     />
   );
 };
