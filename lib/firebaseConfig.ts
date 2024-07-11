@@ -3,15 +3,15 @@ import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyB9EIYlDOT0gxLO5SGxUsV4tK8BhcniHkA",
-    authDomain: "p2p-chat-codes.firebaseapp.com",
-    databaseURL: "https://p2p-chat-codes-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "p2p-chat-codes",
-    storageBucket: "p2p-chat-codes.appspot.com",
-    messagingSenderId: "263035892598",
-    appId: "1:263035892598:web:26311bf43a64d1fff5c057",
-    measurementId: "G-X7C03046MH"
-  };
+    apiKey: process.env.FIREBASE_API_KEY,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+    databaseURL: process.env.FIREBASE_DATABASE_URL,
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.FIREBASE_APP_ID,
+    measurementId: process.env.FIREBASE_MEASUREMENT_ID
+};
 
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
