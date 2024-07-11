@@ -33,6 +33,7 @@ const WebRTCWrapper = ({ mode, setMode }: { mode: 'start' | 'join' | null, setMo
     handleDisconnect,
     resetState,
     fileTransfers,
+    cancelFileTransfer
   } = useWebRTC({ mode, setMode });
 
   return (
@@ -54,6 +55,7 @@ const WebRTCWrapper = ({ mode, setMode }: { mode: 'start' | 'join' | null, setMo
       handleDisconnect={handleDisconnect}
       resetState={resetState}
       fileTransfers={fileTransfers}
+      cancelFileTransfer={cancelFileTransfer}
     />
   );
 };
