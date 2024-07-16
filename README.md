@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# WebRTC based P2P Chat Application
+
+This is a peer-to-peer (P2P) chat application built using WebRTC, Next.js, and Firebase. It allows users to chat directly with each other without relying on a central server for message delivery.
+
+## Features
+
+- **Real-time Chat:** Instant messaging with WebRTC.
+- **Firebase Authentication:** Secure user authentication and management.
+- **Responsive Design:** Optimized for both desktop and mobile devices.
+
+## Prerequisites
+
+Before you begin, ensure you have met the following requirements:
+
+- Node.js and npm installed
+- Firebase account and project setup
 
 ## Getting Started
 
-First, run the development server:
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/smit4297/p2p-chat.git
+cd p2p-chat
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Set up Firebase
+
+Create a `.env` file in the root directory and add your Firebase configuration details as follows:
+
+```
+# Firebase Configuration
+FIREBASE_API_KEY="your_api_key_here"
+FIREBASE_AUTH_DOMAIN="your_auth_domain_here"
+FIREBASE_DATABASE_URL="your_database_url_here"
+FIREBASE_PROJECT_ID="your_project_id_here"
+FIREBASE_STORAGE_BUCKET="your_storage_bucket_here"
+FIREBASE_MESSAGING_SENDER_ID="your_messaging_sender_id_here"
+FIREBASE_APP_ID="your_app_id_here"
+FIREBASE_MEASUREMENT_ID="your_measurement_id_here"
+```
+
+### 4. Run the application
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the application in the browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+- **components/**: React components used in the application.
+- **pages/**: Next.js pages for routing.
+- **public/**: Static files (images, icons, etc.).
+- **styles/**: CSS and styling files.
 
-## Learn More
+## Technologies Used
 
-To learn more about Next.js, take a look at the following resources:
+- **Next.js**: React framework for server-side rendering.
+- **Firebase**: Backend-as-a-Service for authentication and database.
+- **WebRTC**: Real-time communication protocol for P2P messaging.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Contributing
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+Contributions are welcome! Please fork the repository and create a pull request with your changes.
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This project is licensed under the MIT License.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+---
