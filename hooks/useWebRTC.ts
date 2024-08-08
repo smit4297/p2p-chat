@@ -9,7 +9,7 @@ import { useConnection } from "../context/ConnectionContext";
 import { v4 as uuidv4 } from "uuid";
 
 function generateRandomCode(length = 6) {
-  const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const characters = "0123456789";
   let result = "";
   const charactersLength = characters.length;
   for (let i = 0; i < length; i++) {
@@ -79,11 +79,18 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
     setIsPeerConnected(false);
   };
 
+  const iceServers = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:global.stun.twilio.com:3478"}
+    // Add more STUN servers for redundancy if needed
+  ];
+
   useEffect(() => {
     if (mode) {
       const peer = new SimplePeer({
         initiator: mode === "start",
         trickle: false,
+        config: { iceServers }, 
       });
 
       peer.on("signal", async (data: SimplePeer.SignalData) => {
