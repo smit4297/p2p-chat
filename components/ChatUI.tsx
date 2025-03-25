@@ -325,7 +325,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
               mode === "start" ? (<></>) : (<div
                 className="border-t pt-4"
               >
-                <h3 className="text-sm font-medium mb-2">Enter peer's code:</h3>
+                <h3 className="text-sm font-medium mb-2"> Enter peer&apos;s code:</h3>
                 <Input
                   value={remotePeerId}
                   onKeyDown={handleKeyDownPeer}
