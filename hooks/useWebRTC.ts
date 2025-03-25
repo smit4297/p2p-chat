@@ -1,3 +1,5 @@
+// useWebRTC.ts
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import SimplePeer from "simple-peer";
 import { toast } from "react-toastify";
@@ -6,11 +8,6 @@ import { ref, set, get, remove, onValue } from "firebase/database";
 import { useConnection } from "../context/ConnectionContext";
 import { v4 as uuidv4 } from "uuid";
 
-/**
- * Generates a random numeric code of specified length.
- * @param length - The length of the code (default: 6).
- * @returns A random numeric string.
- */
 function generateRandomCode(length = 6) {
   const characters = "0123456789";
   let result = "";
@@ -21,21 +18,15 @@ function generateRandomCode(length = 6) {
   return result;
 }
 
-/**
- * Props for the useWebRTC hook.
- */
 interface UseWebRTCProps {
   mode: "start" | "join" | null;
   setMode: (mode: "start" | "join" | null) => void;
 }
 
-/**
- * Interface for file transfer metadata and state.
- */
 export interface FileTransfer {
   fileId: string;
   fileName: string;
-  originalName: string;
+  originalName: string; // Added for original filename
   fileSize: number;
   progress: number;
   chunks: Uint8Array[];
@@ -46,9 +37,6 @@ export interface FileTransfer {
   abortController?: AbortController;
 }
 
-/**
- * Custom WebRTC hook for peer-to-peer communication and file transfer.
- */
 export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
   const { isConnected, setIsConnected, isPeerConnected, setIsPeerConnected } =
     useConnection();
@@ -64,12 +52,10 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
   );
   const peerRef = useRef<SimplePeer.Instance | null>(null);
 
-  // Configuration constants
   const chunkSize = 64 * 1024; // 64 KB chunk size
   const maxRetries = 3;
-  const retryDelay = 1000; // 1 second delay between retries
+  const retryDelay = 1000; // 1 second
 
-  // File transfer queue
   const fileTransferQueue: {
     fileId: string;
     originalName: string;
@@ -77,16 +63,6 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
     file: File;
   }[] = [];
 
-  // ICE servers for WebRTC
-  const iceServers = [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:global.stun.twilio.com:3478" },
-    // Add TURN servers here if needed for NAT traversal
-  ];
-
-  /**
-   * Resets all state and cleans up the peer connection.
-   */
   const resetState = () => {
     setPeerId("");
     setRemotePeerId("");
@@ -103,100 +79,52 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
     setIsPeerConnected(false);
   };
 
+  const iceServers = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:global.stun.twilio.com:3478"}
+    // Add more STUN servers for redundancy if needed
+  ];
+
   useEffect(() => {
-    if (mode === "start" && peerId) {
-      const waitingPeerRef = ref(database, `peers/${peerId}/waitingPeer`);
-      const unsubscribe = onValue(waitingPeerRef, (snapshot) => {
-        if (snapshot.exists()) {
-          setIsPeerConnected(true);
-          console.log("isPeerConnected set to true");
-          // Optional: Prefill remotePeerId with Person B's code
-          setRemotePeerId(snapshot.val());
+    if (mode) {
+      const peer = new SimplePeer({
+        initiator: mode === "start",
+        trickle: false,
+        config: { iceServers }, 
+      });
+
+      peer.on("signal", async (data: SimplePeer.SignalData) => {
+        const signalData = JSON.stringify(data);
+        if (mode === "start") {
+          const randomCode = generateRandomCode();
+          await set(ref(database, `peers/${randomCode}`), {
+            signalData,
+            expiry: Date.now() + 300000,
+          });
+          setPeerId(randomCode);
+        } else if (mode === "join" && !isConnected) {
+          const randomCode = generateRandomCode();
+          await set(ref(database, `peers/${randomCode}`), {
+            signalData,
+            expiry: Date.now() + 300000,
+          });
+          setPeerId(randomCode);
         }
       });
-      return () => unsubscribe();
-    }
-  }, [mode, peerId]);
 
-  /**
-   * Initializes the WebRTC peer connection based on mode.
-   */
-  useEffect(() => {
-      if (mode) {
-        const peer = new SimplePeer({
-          initiator: mode === "start",
-          trickle: false,
-          config: { iceServers },
-        });
-    
-        peer.on("signal", async (data: SimplePeer.SignalData) => {
-          const signalData = JSON.stringify(data);
-          // Only generate peerId immediately for "start" mode (offer)
-          if (mode === "start") {
-            const randomCode = generateRandomCode();
-            await set(ref(database, `peers/${randomCode}`), {
-              signalData,
-              expiry: Date.now() + 300000,
-            });
-            setPeerId(randomCode);
-          }
-          // For "join" mode, defer peerId generation to handleConnect
-        });
+      peer.on("connect", async () => {
+        toast.success("Connected to peer!");
+        setIsConnected(true);
+      });
 
-        peer.on("connect", async () => {
-          toast.success("Connected to peer!");
-          setIsConnected(true);
-          setIsPeerConnected(true);
-          if (remotePeerId) {
-            await updatePeerStatus(remotePeerId, "connected");
-          }
-        });
-
-      peer.on("error", (err) => {
+      peer.on("error", async (err) => {
         console.error("Peer error:", err);
-        toast.error("Peer connection error");
         resetState();
       });
 
-      peer.on("close", () => {
+      peer.on("close", async () => {
         toast.info("Connection closed");
         resetState();
-      });
-
-      peer.on("data", (data: Uint8Array) => {
-        const decodedMessage = new TextDecoder().decode(data);
-        try {
-          const parsedData = JSON.parse(decodedMessage);
-          switch (parsedData.type) {
-            case "file-info":
-              receiveFile(parsedData);
-              break;
-            case "file-chunk":
-              appendChunk(parsedData);
-              break;
-            case "cancel-transfer":
-              handleCancelledTransfer(parsedData.fileId);
-              break;
-            case "file-transfer-complete":
-              handleFileTransferComplete(parsedData.fileId);
-              break;
-            case "disconnect":
-              handleDisconnect();
-              break;
-            default:
-              setReceivedMessages((prev) => [
-                ...prev,
-                `Friend: ${decodedMessage}`,
-              ]);
-          }
-        } catch (error) {
-          if (!decodedMessage.startsWith("ack:")) {
-            setReceivedMessages((prev) => [
-              ...prev,
-              `Friend: ${decodedMessage}`,
-            ]);
-          }
-        }
       });
 
       peerRef.current = peer;
@@ -207,109 +135,90 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
     }
   }, [mode]);
 
-
   useEffect(() => {
-    console.log("remotePeerId: " + remotePeerId);
-
-    if (mode === "start" && remotePeerId) {
-      const statusRef = ref(database, `peers/${remotePeerId}/status`);
+    if (mode === "start" && peerId) {
+      const statusRef = ref(database, `peers/${peerId}/status`);
       const unsubscribe = onValue(statusRef, (snapshot) => {
-        if (snapshot.exists() && snapshot.val() === "waiting") {
-          setIsPeerConnected(true); // Unblock the field
-          console.log("isPeerConnected set to true");
+        if (snapshot.exists() && snapshot.val() === "connected") {
+          setIsPeerConnected(true);
         }
       });
+
       return () => unsubscribe();
     }
-  }, [mode, remotePeerId]);
+  }, [mode, peerId]);
 
-  /**
-   * Listens for remote peer's signal data in real-time.
-   */
   useEffect(() => {
-    if (remotePeerId && peerRef.current) {
-      const signalRef = ref(database, `peers/${remotePeerId}/signalData`);
-      const unsubscribe = onValue(signalRef, (snapshot) => {
-        if (snapshot.exists()) {
-          try {
-            const signalData = JSON.parse(snapshot.val());
-            peerRef.current?.signal(signalData);
-          } catch (error) {
-            console.error("Error parsing signal data:", error);
-            toast.error("Invalid signal data from peer");
+    if (peerRef.current) {
+      peerRef.current.on("data", (data: Uint8Array) => {
+        const decodedMessage = new TextDecoder().decode(data);
+        try {
+          const parsedData = JSON.parse(decodedMessage);
+          if (parsedData.type === "file-info") {
+            receiveFile(parsedData);
+          } else if (parsedData.type === "file-chunk") {
+            appendChunk(parsedData);
+          } else if (parsedData.type === "cancel-transfer") {
+            handleCancelledTransfer(parsedData.fileId);
+          } else if (parsedData.type === "file-transfer-complete") {
+            handleFileTransferComplete(parsedData.fileId);
+          } else {
+            setReceivedMessages((prev) => [
+              ...prev,
+              `Friend: ${decodedMessage}`,
+            ]);
+          }
+        } catch (error) {
+          if (!decodedMessage.startsWith("ack:")) {
+            setReceivedMessages((prev) => [
+              ...prev,
+              `Friend: ${decodedMessage}`,
+            ]);
           }
         }
       });
-      return () => unsubscribe();
     }
-  }, [remotePeerId]);
+  }, [peerRef.current]);
 
-  /**
-   * Handles a cancelled file transfer.
-   */
   const handleCancelledTransfer = (fileId: string) => {
     setFileTransfers((prev) => {
       const newTransfers = new Map(prev);
       const transfer = newTransfers.get(fileId);
       if (transfer) {
         transfer.status = "cancelled";
+        // Optionally, you can remove the transfer from the map here
         newTransfers.delete(fileId);
       }
       return newTransfers;
     });
   };
 
-  /**
-   * Validates and initiates connection to a remote peer.
-   */
   const handleConnect = async () => {
-    if (!remotePeerId) {
-      toast.error("Please enter a remote peer ID");
-      return;
-    }
-    const snapshot = await get(ref(database, `peers/${remotePeerId}`));
-    if (!snapshot.exists()) {
-      toast.error("Invalid peer code");
-      return;
-    }
-    const { expiry, signalData } = snapshot.val();
-    if (Date.now() > expiry) {
-      toast.error("Code has expired");
-      await remove(ref(database, `peers/${remotePeerId}`));
-      return;
-    }
-  
     try {
-      peerRef.current?.signal(JSON.parse(signalData));
-  
-      if (mode === "join" && !peerId) {
-        await new Promise<void>((resolve) => {
-          const onSignal = async (data: any) => {
-            const signalData = JSON.stringify(data);
-            const randomCode = generateRandomCode(); // e.g., "789012"
-            await set(ref(database, `peers/${randomCode}`), {
-              signalData,
-              expiry: Date.now() + 300000, // 5-minute expiry
-              status: "waiting", // Indicate Person B is waiting
-            });
-            // Update Person A's peer entry with waitingPeer
-            await set(ref(database, `peers/${remotePeerId}/waitingPeer`), randomCode);
-            setPeerId(randomCode);
-            peerRef.current?.off("signal", onSignal);
-            resolve();
-          };
-          peerRef.current?.on("signal", onSignal);
-        });
+      if (peerRef.current && remotePeerId) {
+        const snapshot = await get(ref(database, `peers/${remotePeerId}`));
+        if (snapshot.exists()) {
+          const { signalData, expiry } = snapshot.val();
+          if (Date.now() > expiry) {
+            toast.error("Code has expired");
+            await remove(ref(database, `peers/${remotePeerId}`));
+          } else {
+            const parsedRemotePeerId = JSON.parse(signalData);
+            peerRef.current.signal(parsedRemotePeerId);
+            await updatePeerStatus(remotePeerId, "connected");
+          }
+        } else {
+          toast.error("Invalid peer code");
+        }
+      } else {
+        toast.error("Invalid remote peer ID");
       }
     } catch (error) {
-      console.error("Error signaling peer:", error);
+      console.error("Connection error:", error);
       toast.error("Failed to connect to peer");
     }
   };
 
-  /**
-   * Sends a text message to the connected peer.
-   */
   const handleSend = useCallback(() => {
     try {
       if (peerRef.current && peerRef.current.connected && message) {
@@ -323,11 +232,8 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
       console.error("Send error:", error);
       toast.error("Error sending message");
     }
-  }, [message]);
+  }, [message, setReceivedMessages, setMessage]);
 
-  /**
-   * Sends a file in chunks to the connected peer.
-   */
   const sendFileInChunks = async (fileInfo: {
     fileId: string;
     originalName: string;
@@ -362,17 +268,19 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
       return newTransfers;
     });
 
+    // Send file info to receiver
     peerRef.current.send(
       JSON.stringify({
         type: "file-info",
-        fileId,
+        fileId: fileInfo.fileId,
         name: fileInfo.uniqueName,
         originalName: fileInfo.originalName,
-        size: file.size,
+        size: fileInfo.file.size,
         totalChunks,
       })
     );
 
+    // Wait for acknowledgment from receiver
     await new Promise<void>((resolve) => {
       const onAck = (data: Uint8Array) => {
         const message = new TextDecoder().decode(data);
@@ -384,6 +292,7 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
       peerRef.current?.on("data", onAck);
     });
 
+    // Start sending chunks
     try {
       for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
         const start = chunkIndex * chunkSize;
@@ -408,6 +317,7 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
               })
             );
 
+            // Wait for acknowledgment
             await new Promise<void>((resolve, reject) => {
               const timeout = setTimeout(
                 () => reject(new Error("Ack timeout")),
@@ -424,6 +334,7 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
               peerRef.current?.on("data", onAck);
             });
 
+            // Update progress
             setFileTransfers((prev) => {
               const newTransfers = new Map(prev);
               const transfer = newTransfers.get(fileId);
@@ -434,12 +345,12 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
               return newTransfers;
             });
 
-            break;
+            break; // Chunk sent successfully, move to next chunk
           } catch (error) {
             retries++;
             if (retries >= maxRetries) {
               throw new Error(
-                `Failed to send file ${fileInfo.originalName} after retries`
+                `Failed to send file ${fileInfo.originalName} after multiple retries`
               );
             }
             await new Promise((resolve) => setTimeout(resolve, retryDelay));
@@ -447,6 +358,7 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
         }
       }
 
+      // Send completion message
       peerRef.current.send(
         JSON.stringify({
           type: "file-transfer-complete",
@@ -459,11 +371,12 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
         const transfer = newTransfers.get(fileId);
         if (transfer) {
           transfer.status = "completed";
-          transfer.progress = 100;
+          transfer.progress = 100; // Ensure progress is set to 100%
         }
         return newTransfers;
       });
 
+      // Only add the message if the transfer completes successfully
       setReceivedMessages((prev) => [
         ...prev,
         `Me: Sent file - ${fileInfo.originalName} (${fileId})`,
@@ -473,26 +386,37 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
       setFileTransfers((prev) => {
         const newTransfers = new Map(prev);
         const transfer = newTransfers.get(fileId);
+
         if (transfer) {
-          transfer.status = "failed";
+          transfer.status = "cancelled";
         }
         return newTransfers;
       });
+
       toast.error(`Failed to send file ${fileInfo.originalName}`);
+    } finally {
+      // Clean up code here
+      setFileTransfers((prev) => {
+        const newTransfers = new Map(prev);
+        const transfer = newTransfers.get(fileId);
+        if (transfer && transfer.status !== "completed") {
+          newTransfers.delete(fileId);
+        }
+        return newTransfers;
+      });
     }
   };
 
-  /**
-   * Queues a file for sending and ensures unique file names.
-   */
   const handleSendFile = (file: File) => {
     const fileId = uuidv4();
+
     const existingFileNames = Array.from(fileTransfers.values()).map(
       (transfer) => transfer.originalName
     );
 
     let uniqueName = file.name;
     let counter = 1;
+
     while (existingFileNames.includes(uniqueName)) {
       const nameParts = file.name.split(".");
       const extension = nameParts.pop();
@@ -501,7 +425,13 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
       counter++;
     }
 
-    const fileInfo = { fileId, originalName: file.name, uniqueName, file };
+    const fileInfo = {
+      fileId,
+      originalName: file.name,
+      uniqueName: uniqueName,
+      file,
+    };
+
     fileTransferQueue.push(fileInfo);
 
     if (fileTransferQueue.length === 1) {
@@ -509,9 +439,6 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
     }
   };
 
-  /**
-   * Processes the file transfer queue sequentially.
-   */
   const processFileQueue = async () => {
     while (fileTransferQueue.length > 0) {
       const fileInfo = fileTransferQueue.shift();
@@ -521,9 +448,6 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
     }
   };
 
-  /**
-   * Initializes receiving a file based on file info from the sender.
-   */
   const receiveFile = (fileInfo: {
     fileId: string;
     name: string;
@@ -548,12 +472,10 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
       return newTransfers;
     });
 
+    // Send acknowledgment
     peerRef.current?.send(`ack:file-info:${fileInfo.fileId}`);
   };
 
-  /**
-   * Appends a received file chunk and updates progress.
-   */
   const appendChunk = (chunkData: {
     fileId: string;
     chunkIndex: number;
@@ -572,11 +494,16 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
     });
 
     peerRef.current?.send(`ack:${chunkData.fileId}:${chunkData.chunkIndex}`);
+
+    const transfer = fileTransfers.get(chunkData.fileId);
+    if (
+      transfer &&
+      transfer.chunks.filter(Boolean).length === transfer.totalChunks
+    ) {
+      handleFileTransferComplete(chunkData.fileId);
+    }
   };
 
-  /**
-   * Completes a file transfer and creates a downloadable URL.
-   */
   const handleFileTransferComplete = (fileId: string) => {
     setFileTransfers((prev) => {
       const newTransfers = new Map(prev);
@@ -599,9 +526,6 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
     });
   };
 
-  /**
-   * Cancels an ongoing file transfer.
-   */
   const cancelFileTransfer = (fileId: string) => {
     setFileTransfers((prev) => {
       const newTransfers = new Map(prev);
@@ -610,6 +534,8 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
         transfer.status = "cancelled";
         transfer.abortController?.abort();
         newTransfers.delete(fileId);
+
+        // Remove the file message from receivedMessages
         setReceivedMessages((prevMessages) =>
           prevMessages.filter(
             (msg) =>
@@ -631,9 +557,6 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
     );
   };
 
-  /**
-   * Disconnects from the peer and cleans up.
-   */
   const handleDisconnect = () => {
     if (peerRef.current) {
       peerRef.current.send(JSON.stringify({ type: "disconnect" }));
@@ -643,6 +566,7 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
       Array.from(newTransfers.entries()).forEach(([fileId, transfer]) => {
         if (transfer.status !== "completed") {
           newTransfers.delete(fileId);
+          // Remove the file message from receivedMessages
           setReceivedMessages((prevMessages) =>
             prevMessages.filter(
               (msg) => !msg.includes(`File received - ${transfer.fileName}`)
@@ -660,9 +584,6 @@ export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
     resetState();
   };
 
-  /**
-   * Updates the peer's status in Firebase.
-   */
   const updatePeerStatus = async (remotePeerId: string, status: string) => {
     try {
       await set(ref(database, `peers/${remotePeerId}/status`), status);

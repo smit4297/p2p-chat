@@ -311,7 +311,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {mode === "start" && (
+            {peerId && (
               <div>
                 <h3 className="text-sm font-medium mb-2">
                   Your code (share with peer):
@@ -321,20 +321,21 @@ const ChatUI: React.FC<ChatUIProps> = ({
                 </p>
               </div>
             )}
-            {
-              mode === "start" ? (<></>) : (<div
-                className="border-t pt-4"
-              >
-                <h3 className="text-sm font-medium mb-2"> Enter peer&apos;s code:</h3>
-                <Input
-                  value={remotePeerId}
-                  onKeyDown={handleKeyDownPeer}
-                  onChange={(e) => setRemotePeerId(e.target.value)}
-                  placeholder="Enter peer code"
-                  className="text-xs sm:text-sm"
-                />
-              </div>)
-            }
+            <div
+              className={`border-t pt-4 ${
+                mode === "start" && !isPeerConnected ? "opacity-50" : ""
+              }`}
+            >
+              <h3 className="text-sm font-medium mb-2">Enter peer&apos;s code:</h3>
+              <Input
+                value={remotePeerId}
+                onKeyDown={handleKeyDownPeer}
+                onChange={(e) => setRemotePeerId(e.target.value)}
+                placeholder="Enter peer code"
+                disabled={mode === "start" && !isPeerConnected}
+                className="text-xs sm:text-sm"
+              />
+            </div>
             <Button
               className="w-full text-sm sm:text-base"
               onClick={handleConnect}
