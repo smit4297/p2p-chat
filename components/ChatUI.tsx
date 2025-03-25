@@ -1,15 +1,13 @@
-// ChatUI.tsx
-
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback, memo } from "react";
-import { ToastContainer } from "react-toastify";
+import { ToastContainer, toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { Send, PaperclipIcon } from "lucide-react";
+import { Send, PaperclipIcon, Copy } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog,
@@ -56,7 +54,9 @@ const FileTransferProgress: React.FC<{
   return (
     <div className="mt-2 p-2 bg-muted rounded-md">
       <div className="flex justify-between text-sm">
-        <span>{transfer.originalName}</span>
+        <span className="truncate" title={transfer.originalName}>
+          {transfer.originalName}
+        </span>
         <span>{transfer.progress.toFixed(0)}%</span>
       </div>
       <Progress value={transfer.progress} className="w-full mt-1" />
@@ -131,7 +131,6 @@ const ChatUI: React.FC<ChatUIProps> = ({
       );
       if (scrollElement) {
         scrollElement.scrollTop = scrollElement.scrollHeight;
-        // Force a recheck after a short delay
         setTimeout(() => {
           scrollElement.scrollTop = scrollElement.scrollHeight;
         }, 50);
@@ -203,7 +202,6 @@ const ChatUI: React.FC<ChatUIProps> = ({
 
       if (scrollElement) {
         scrollElement.addEventListener("scroll", checkScrollPosition);
-        // Initial check
         checkScrollPosition();
       }
 
@@ -274,17 +272,34 @@ const ChatUI: React.FC<ChatUIProps> = ({
             <CardTitle className="text-lg sm:text-xl">PeerLink</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col space-y-4">
-            <Button onClick={() => { resetState(); setMode('start'); }} className="text-sm sm:text-base">Start Chat</Button>
-            <Button onClick={() => { resetState(); setMode('join'); }} variant="outline" className="text-sm sm:text-base">Join Chat</Button>
+            <Button
+              onClick={() => {
+                resetState();
+                setMode("start");
+              }}
+              className="text-sm sm:text-base"
+            >
+              Start Chat
+            </Button>
+            <Button
+              onClick={() => {
+                resetState();
+                setMode("join");
+              }}
+              variant="outline"
+              className="text-sm sm:text-base"
+            >
+              Join Chat
+            </Button>
           </CardContent>
         </Card>
         <div className="mt-4 text-center">
-          <RandomQuote /> 
+          <RandomQuote />
         </div>
         <ToastContainer />
       </div>
     );
-}
+  }
 
   if (!isConnected) {
     return (
@@ -296,7 +311,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {peerId && (
+            {mode === "start" && (
               <div>
                 <h3 className="text-sm font-medium mb-2">
                   Your code (share with peer):
@@ -306,23 +321,20 @@ const ChatUI: React.FC<ChatUIProps> = ({
                 </p>
               </div>
             )}
-            <div
-              className={`border-t pt-4 ${
-                mode === "start" && !isPeerConnected ? "opacity-50" : ""
-              }`}
-            >
-              <h3 className="text-sm font-medium mb-2">
-                Enter peer&apos;s code:
-              </h3>
-              <Input
-                value={remotePeerId}
-                onKeyDown={handleKeyDownPeer}
-                onChange={(e) => setRemotePeerId(e.target.value)}
-                placeholder="Enter peer code"
-                disabled={mode === "start" && !isPeerConnected}
-                className="text-xs sm:text-sm"
-              />
-            </div>
+            {
+              mode === "start" ? (<></>) : (<div
+                className="border-t pt-4"
+              >
+                <h3 className="text-sm font-medium mb-2">Enter peer's code:</h3>
+                <Input
+                  value={remotePeerId}
+                  onKeyDown={handleKeyDownPeer}
+                  onChange={(e) => setRemotePeerId(e.target.value)}
+                  placeholder="Enter peer code"
+                  className="text-xs sm:text-sm"
+                />
+              </div>)
+            }
             <Button
               className="w-full text-sm sm:text-base"
               onClick={handleConnect}
@@ -416,7 +428,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
                       )}
                       <div
                         className={cn(
-                          "rounded-lg py-1 px-2 sm:py-2 sm:px-3 break-words text-xs sm:text-sm",
+                          "relative group rounded-lg py-1 px-2 sm:py-2 sm:px-3 break-words text-xs sm:text-sm",
                           isMe
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted",
@@ -428,7 +440,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
                             <a
                               href={file.url}
                               download={file.name}
-                              className="text-blue-500 underline"
+                              className="text-blue-500 underline word-break break-all"
                             >
                               {file.name}
                             </a>
@@ -436,7 +448,28 @@ const ChatUI: React.FC<ChatUIProps> = ({
                             `File ${isMe ? "sent" : "received"} - ${fileName}`
                           )
                         ) : (
-                          content
+                          <>
+                            <span className="break-words">{content}</span>
+                            {!isMe && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-1 right-1 p-1 opacity-0 group-hover:opacity-100"
+                                onClick={() => {
+                                  navigator.clipboard
+                                    .writeText(content)
+                                    .then(() => {
+                                      toast.success("Text copied to clipboard");
+                                    })
+                                    .catch(() => {
+                                      toast.error("Failed to copy text");
+                                    });
+                                }}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -481,7 +514,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
             rows={3}
           />
           <Button variant="ghost" size="icon" onClick={handleSend}>
-            <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+            <Send className="h从未 w-4 sm:h-5 sm:w-5" />
           </Button>
         </div>
         <ScrollToBottomButton />
