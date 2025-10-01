@@ -1,61 +1,128 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react';
-import useWebRTC from '../hooks/useWebRTC';
-import ChatUI from '../components/ChatUI';
-import 'react-toastify/dist/ReactToastify.css';
-import { ConnectionProvider } from '../context/ConnectionContext';
+import React, { useState } from "react";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { ConnectionProvider } from "../context/ConnectionContext";
+import { ErrorBoundary } from "../components/ErrorBoundary";
+import { useWebRTCIntegrated } from "../hooks/useWebRTCIntegrated";
+import { ModeSelection } from "../components/chat/ModeSelection";
+import { ConnectionSetup } from "../components/chat/ConnectionSetup";
+import { ChatInterface } from "../components/chat/ChatInterface";
+import type { ChatMode } from "../lib/types";
 
 export default function Home() {
-  const [mode, setMode] = useState<'start' | 'join' | null>(null);
+  const [mode, setMode] = useState<ChatMode>(null);
 
   return (
-    <ConnectionProvider>
-      <WebRTCWrapper mode={mode} setMode={setMode} />
-    </ConnectionProvider>
+    <ErrorBoundary>
+      <ConnectionProvider>
+        <PeerLinkApp mode={mode} setMode={setMode} />
+      </ConnectionProvider>
+    </ErrorBoundary>
   );
 }
 
-const WebRTCWrapper = ({ mode, setMode }: { mode: 'start' | 'join' | null, setMode: (mode: 'start' | 'join' | null) => void }) => {
+function PeerLinkApp({
+  mode,
+  setMode,
+}: {
+  mode: ChatMode;
+  setMode: (mode: ChatMode) => void;
+}) {
   const {
     peerId,
     remotePeerId,
     setRemotePeerId,
-    message,
-    setMessage,
-    receivedMessages,
     isConnected,
     isPeerConnected,
     handleConnect,
+    message,
+    setMessage,
+    receivedMessages,
     handleSend,
     handleSendFile,
     receivedFiles,
-    handleDisconnect,
-    resetState,
     fileTransfers,
-    cancelFileTransfer
-  } = useWebRTC({ mode, setMode });
+    cancelFileTransfer,
+    resetState,
+  } = useWebRTCIntegrated({ mode, setMode });
 
+  // Mode selection screen
+  if (!mode) {
+    return (
+      <>
+        <ModeSelection onSelectMode={setMode} />
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="colored"
+        />
+      </>
+    );
+  }
+
+  // Connection setup screen
+  if (!isConnected) {
+    return (
+      <>
+        <ConnectionSetup
+          mode={mode}
+          peerId={peerId}
+          remotePeerId={remotePeerId}
+          setRemotePeerId={setRemotePeerId}
+          isPeerConnected={isPeerConnected}
+          onConnect={handleConnect}
+        />
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="colored"
+        />
+      </>
+    );
+  }
+
+  // Chat interface
   return (
-    <ChatUI
-      mode={mode}
-      peerId={peerId}
-      remotePeerId={remotePeerId}
-      setRemotePeerId={setRemotePeerId}
-      message={message}
-      setMessage={setMessage}
-      receivedMessages={receivedMessages}
-      isConnected={isConnected}
-      isPeerConnected={isPeerConnected}
-      handleConnect={handleConnect}
-      handleSend={handleSend}
-      handleSendFile={handleSendFile}
-      receivedFiles={receivedFiles}
-      setMode={setMode}
-      handleDisconnect={handleDisconnect}
-      resetState={resetState}
-      fileTransfers={fileTransfers}
-      cancelFileTransfer={cancelFileTransfer}
-    />
+    <>
+      <ChatInterface
+        message={message}
+        setMessage={setMessage}
+        receivedMessages={receivedMessages}
+        receivedFiles={receivedFiles}
+        onSend={handleSend}
+        onSendFile={handleSendFile}
+        onDisconnect={resetState}
+        fileTransfers={fileTransfers}
+        onCancelTransfer={cancelFileTransfer}
+      />
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="colored"
+      />
+    </>
   );
-};
+}
