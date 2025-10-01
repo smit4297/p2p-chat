@@ -17,7 +17,7 @@ import { Send, PaperclipIcon, ChevronDown, Copy, Download, FileIcon, Upload } fr
 import { FileTransferList } from "./FileTransferItem";
 import { formatMessageTime } from "@/lib/utils/format-utils";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { toast } from "react-toastify";
+import { useToast } from "@/hooks/useToast";
 import { cn } from "@/lib/utils";
 import type { FileTransfer, ReceivedFile } from "@/lib/types";
 
@@ -51,6 +51,7 @@ export function ChatInterface({
   const [isDragging, setIsDragging] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
   const { copy } = useCopyToClipboard();
+  const { toast } = useToast();
 
   const scrollToBottom = useCallback(() => {
     if (scrollAreaRef.current) {
@@ -166,7 +167,7 @@ export function ChatInterface({
         files.forEach((file) => onSendFile(file));
       }
     },
-    [onSendFile]
+    [onSendFile, toast]
   );
 
   // Show drag overlay when files are being dragged

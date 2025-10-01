@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Copy, Check, Loader2 } from "lucide-react";
 import { formatPeerCode } from "@/lib/utils/format-utils";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { toast } from "react-toastify";
+import { useToast } from "@/hooks/useToast";
 import type { ChatMode } from "@/lib/types";
 
 interface ConnectionSetupProps {
@@ -28,6 +28,7 @@ export function ConnectionSetup({
   onConnect,
 }: ConnectionSetupProps) {
   const { copy, isCopied } = useCopyToClipboard();
+  const { toast } = useToast();
 
   const handleCopyCode = async () => {
     const success = await copy(peerId);

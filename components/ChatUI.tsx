@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback, memo } from "react";
-import { ToastContainer, toast } from "react-toastify";
+import { useToast } from "@/hooks/useToast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -119,6 +119,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
   fileTransfers,
   cancelFileTransfer,
 }) => {
+  const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -296,7 +297,6 @@ const ChatUI: React.FC<ChatUIProps> = ({
         <div className="mt-4 text-center">
           <RandomQuote />
         </div>
-        <ToastContainer />
       </div>
     );
   }
@@ -520,7 +520,6 @@ const ChatUI: React.FC<ChatUIProps> = ({
         </div>
         <ScrollToBottomButton />
       </Card>
-      <ToastContainer />
       <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

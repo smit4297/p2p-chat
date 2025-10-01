@@ -2,10 +2,11 @@
 
 import { useState, useCallback } from "react";
 import SimplePeer from "simple-peer";
-import { toast } from "react-toastify";
+import { useToast } from "./useToast";
 import { sendData } from "../lib/services/webrtc-service";
 
 export function useMessages(peer: SimplePeer.Instance | null) {
+  const { toast } = useToast();
   const [message, setMessage] = useState<string>("");
   const [receivedMessages, setReceivedMessages] = useState<string[]>([]);
 

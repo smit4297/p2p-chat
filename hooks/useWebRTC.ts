@@ -1,8 +1,8 @@
-// useWebRTC.ts
+// useWebRTC.ts (Legacy file - no longer used)
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import SimplePeer from "simple-peer";
-import { toast } from "react-toastify";
+import { useToast } from "./useToast";
 import { database } from "../lib/firebaseConfig";
 import { ref, set, get, remove, onValue } from "firebase/database";
 import { useConnection } from "../context/ConnectionContext";
@@ -38,6 +38,7 @@ export interface FileTransfer {
 }
 
 export default function useWebRTC({ mode, setMode }: UseWebRTCProps) {
+  const { toast } = useToast();
   const { isConnected, setIsConnected, isPeerConnected, setIsPeerConnected } =
     useConnection();
   const [peerId, setPeerId] = useState<string>("");

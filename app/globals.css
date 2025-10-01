@@ -206,13 +206,3 @@ html, body {
     background: hsl(var(--primary) / 0.8);
   }
 }
-
-/* Toast container positioning */
-:root {
-  --toastify-color-light: hsl(var(--background));
-  --toastify-color-dark: hsl(var(--card));
-  --toastify-color-info: hsl(var(--secondary));
-  --toastify-color-success: 142 76% 36%;
-  --toastify-color-warning: 38 92% 50%;
-  --toastify-color-error: hsl(var(--destructive));
-}

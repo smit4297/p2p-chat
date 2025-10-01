@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import { ConnectionProvider } from "../context/ConnectionContext";
+import { ToastProvider } from "../contexts/ToastContext";
+import { Toaster } from "../components/Toaster";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { useWebRTCIntegrated } from "../hooks/useWebRTCIntegrated";
 import { ModeSelection } from "../components/chat/ModeSelection";
@@ -16,9 +16,12 @@ export default function Home() {
 
   return (
     <ErrorBoundary>
-      <ConnectionProvider>
-        <PeerLinkApp mode={mode} setMode={setMode} />
-      </ConnectionProvider>
+      <ToastProvider>
+        <ConnectionProvider>
+          <PeerLinkApp mode={mode} setMode={setMode} />
+          <Toaster />
+        </ConnectionProvider>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }
@@ -50,79 +53,35 @@ function PeerLinkApp({
 
   // Mode selection screen
   if (!mode) {
-    return (
-      <>
-        <ModeSelection onSelectMode={setMode} />
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="colored"
-        />
-      </>
-    );
+    return <ModeSelection onSelectMode={setMode} />;
   }
 
   // Connection setup screen
   if (!isConnected) {
     return (
-      <>
-        <ConnectionSetup
-          mode={mode}
-          peerId={peerId}
-          remotePeerId={remotePeerId}
-          setRemotePeerId={setRemotePeerId}
-          isPeerConnected={isPeerConnected}
-          onConnect={handleConnect}
-        />
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="colored"
-        />
-      </>
+      <ConnectionSetup
+        mode={mode}
+        peerId={peerId}
+        remotePeerId={remotePeerId}
+        setRemotePeerId={setRemotePeerId}
+        isPeerConnected={isPeerConnected}
+        onConnect={handleConnect}
+      />
     );
   }
 
   // Chat interface
   return (
-    <>
-      <ChatInterface
-        message={message}
-        setMessage={setMessage}
-        receivedMessages={receivedMessages}
-        receivedFiles={receivedFiles}
-        onSend={handleSend}
-        onSendFile={handleSendFile}
-        onDisconnect={resetState}
-        fileTransfers={fileTransfers}
-        onCancelTransfer={cancelFileTransfer}
-      />
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="colored"
-      />
-    </>
+    <ChatInterface
+      message={message}
+      setMessage={setMessage}
+      receivedMessages={receivedMessages}
+      receivedFiles={receivedFiles}
+      onSend={handleSend}
+      onSendFile={handleSendFile}
+      onDisconnect={resetState}
+      fileTransfers={fileTransfers}
+      onCancelTransfer={cancelFileTransfer}
+    />
   );
 }

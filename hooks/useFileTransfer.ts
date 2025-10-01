@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useRef } from "react";
 import SimplePeer from "simple-peer";
-import { toast } from "react-toastify";
 import { v4 as uuidv4 } from "uuid";
+import { useToast } from "./useToast";
 import type { FileTransfer, ReceivedFile, FileTransferMessage } from "../lib/types";
 import { FILE_TRANSFER } from "../lib/constants";
 import {
@@ -27,6 +27,7 @@ interface UseFileTransferProps {
 }
 
 export function useFileTransfer({ peer, onFileReceived, onFileSent }: UseFileTransferProps) {
+  const { toast } = useToast();
   const [fileTransfers, setFileTransfers] = useState<Map<string, FileTransfer>>(
     new Map()
   );
@@ -214,7 +215,7 @@ export function useFileTransfer({ peer, onFileReceived, onFileSent }: UseFileTra
     (file: File) => {
       const validation = validateFile(file);
       if (!validation.valid) {
-        toast.error(validation.error);
+        toast.error(validation.error || "Invalid file");
         return;
       }
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import SimplePeer from "simple-peer";
-import { toast } from "react-toastify";
+import { useToast } from "./useToast";
 import { useConnection } from "../context/ConnectionContext";
 import {
   createPeer,
@@ -22,6 +22,7 @@ export function useWebRTCConnection(
   mode: ChatMode,
   onDataReceived: (data: Uint8Array) => void
 ) {
+  const { toast } = useToast();
   const { isConnected, setIsConnected, isPeerConnected, setIsPeerConnected } =
     useConnection();
   const [peerId, setPeerId] = useState<string>("");
