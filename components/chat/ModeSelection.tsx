@@ -56,7 +56,7 @@ export function ModeSelection({ onSelectMode }: ModeSelectionProps) {
               onClick={() => onSelectMode("join")}
               size="lg"
               variant="outline"
-              className="h-14 text-base font-medium border-2 hover:bg-muted/50 transform hover:scale-105 transition-all"
+              className="h-14 text-base font-medium border-2 hover:bg-muted/50 hover:text-foreground transform hover:scale-105 transition-all"
             >
               <Users className="mr-2 h-5 w-5" />
               Join Existing Chat

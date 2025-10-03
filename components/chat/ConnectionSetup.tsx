@@ -16,6 +16,7 @@ interface ConnectionSetupProps {
   remotePeerId: string;
   setRemotePeerId: (id: string) => void;
   isPeerConnected: boolean;
+  isConnecting: boolean;
   onConnect: () => void;
 }
 
@@ -25,6 +26,7 @@ export function ConnectionSetup({
   remotePeerId,
   setRemotePeerId,
   isPeerConnected,
+  isConnecting,
   onConnect,
 }: ConnectionSetupProps) {
   const { copy, isCopied } = useCopyToClipboard();
@@ -46,8 +48,8 @@ export function ConnectionSetup({
     }
   };
 
-  const isWaitingForPeer = mode === "start" && !isPeerConnected;
-  const canConnect = remotePeerId.trim().length > 0 && !isWaitingForPeer;
+  const isWaitingForPeer = mode === "start" && !isPeerConnected && !isConnecting;
+  const canConnect = remotePeerId.trim().length > 0 && !isWaitingForPeer && !isConnecting;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-blue-900 p-4">
@@ -105,7 +107,7 @@ export function ConnectionSetup({
           {/* Remote peer code input */}
           <div
             className={`space-y-2 transition-opacity ${
-              isWaitingForPeer ? "opacity-50 pointer-events-none" : ""
+              isWaitingForPeer || isConnecting ? "opacity-50 pointer-events-none" : ""
             }`}
           >
             <label className="text-sm font-medium">Friend&apos;s Code</label>
@@ -115,7 +117,7 @@ export function ConnectionSetup({
                 onChange={(e) => setRemotePeerId(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Enter 6-digit code"
-                disabled={isWaitingForPeer}
+                disabled={isWaitingForPeer || isConnecting}
                 maxLength={6}
                 className="text-center text-xl font-mono tracking-wider h-12"
               />
@@ -124,7 +126,12 @@ export function ConnectionSetup({
                 disabled={!canConnect}
                 className="w-full h-12 bg-gradient-primary hover:opacity-90 transition-opacity"
               >
-                {isWaitingForPeer ? (
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Connecting...
+                  </>
+                ) : isWaitingForPeer ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Waiting for friend...
@@ -136,10 +143,14 @@ export function ConnectionSetup({
             </div>
           </div>
 
-          {isWaitingForPeer && (
+          {(isWaitingForPeer || isConnecting) && (
             <div className="text-center animate-pulse">
               <p className="text-sm text-muted-foreground">
-                Waiting for your friend to join...
+                {isConnecting
+                  ? mode === "join"
+                    ? "Establishing connection..."
+                    : "Connecting to peer..."
+                  : "Waiting for your friend to join..."}
               </p>
             </div>
           )}

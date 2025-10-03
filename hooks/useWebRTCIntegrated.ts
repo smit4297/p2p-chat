@@ -95,6 +95,7 @@ export function useWebRTCIntegrated({ mode, setMode }: UseWebRTCIntegratedProps)
     setRemotePeerId: connection.setRemotePeerId,
     isConnected: connection.isConnected,
     isPeerConnected: connection.isPeerConnected,
+    isConnecting: connection.isConnecting,
     handleConnect: connection.handleConnect,
 
     // Messages

@@ -39,6 +39,7 @@ function PeerLinkApp({
     setRemotePeerId,
     isConnected,
     isPeerConnected,
+    isConnecting,
     handleConnect,
     message,
     setMessage,
@@ -65,6 +66,7 @@ function PeerLinkApp({
         remotePeerId={remotePeerId}
         setRemotePeerId={setRemotePeerId}
         isPeerConnected={isPeerConnected}
+        isConnecting={isConnecting}
         onConnect={handleConnect}
       />
     );
