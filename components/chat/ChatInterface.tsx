@@ -243,13 +243,13 @@ export function ChatInterface({
                     )}
                     <div
                       className={cn(
-                        "group relative max-w-[70%]",
+                        "group relative flex flex-col max-w-[70%]",
                         isMe ? "items-end" : "items-start"
                       )}
                     >
                       <div
                         className={cn(
-                          "rounded-2xl px-4 py-2 shadow-sm",
+                          "rounded-2xl px-4 py-2 shadow-sm w-full break-words overflow-hidden",
                           isMe
                             ? "bg-gradient-primary text-white"
                             : "bg-muted"
@@ -264,30 +264,31 @@ export function ChatInterface({
                             }}
                             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors group"
                           >
-                            <Download className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
-                            <div className="flex flex-col items-start">
-                              <span className="font-medium text-sm">{file.name}</span>
+                            <Download className="h-5 w-5 text-primary group-hover:scale-110 transition-transform flex-shrink-0" />
+                            <div className="flex flex-col items-start min-w-0 flex-1">
+                              <span className="font-medium text-sm truncate w-full">{file.name}</span>
                               <span className="text-xs text-muted-foreground">Click to download</span>
                             </div>
                           </a>
                         ) : isFile && !file ? (
                           <div className="flex items-center gap-2 text-muted-foreground">
-                            <FileIcon className="h-4 w-4" />
-                            <span className="text-sm">{fileName}</span>
+                            <FileIcon className="h-4 w-4 flex-shrink-0" />
+                            <span className="text-sm truncate">{fileName}</span>
                           </div>
                         ) : (
-                          <div className="flex items-start gap-2">
-                            <p className="text-sm whitespace-pre-wrap break-words">
+                          <div className="flex flex-col gap-2">
+                            <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere">
                               {content}
                             </p>
                             {!isMe && !isFile && (
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                size="sm"
+                                className="h-7 w-full opacity-0 group-hover:opacity-100 transition-opacity self-start"
                                 onClick={() => handleCopy(content)}
                               >
-                                <Copy className="h-3 w-3" />
+                                <Copy className="h-3 w-3 mr-1" />
+                                <span className="text-xs">Copy</span>
                               </Button>
                             )}
                           </div>
